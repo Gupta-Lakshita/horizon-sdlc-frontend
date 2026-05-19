@@ -17,7 +17,7 @@ const SERVICE_OPTIONS = [
   { type: 'header', label: 'Horizon Secure SDLC Platform' },
   { value: 'Devops Pipeline', label: 'Build & Deploy Pipeline' },
   { value: 'Test Devops Pipeline', label: 'Validation Pipeline' },
-  { value: 'Prod Devops Pipeline', label: 'Production Release Pipeline' },
+  { value: 'Prod Devops Pipeline', label: 'Release Promotion Pipeline' },
   { type: 'header', label: 'Enterprise Cloud Operations' },
   { value: 'Multi-Cloud Deployment Manager', label: 'Cloud Deployment Manager' },
   { value: 'AI-Driven Monitoring & Incident Response', label: 'AIOps Monitoring & Incident Response' },
@@ -66,7 +66,8 @@ const PRICE_FALLBACK = {
 const PROJECT_TYPES = ['Docker', 'Angular', 'SpringBoot', 'SpringBoot-Java11', 'NodeJs', 'WebComponent'];
 const REPO_TYPES = ['GitHub', 'BitBucket', 'CodeCommit', 'S3'];
 const TARGET_ENVS = ['DEV', 'QA', 'STAGE'];
-const PROD_TARGET_ENVS = ['PROD'];
+const RELEASE_SOURCE_ENVS = ['DEV', 'QA', 'STAGE'];
+const RELEASE_TARGET_ENVS = ['QA', 'STAGE', 'PROD'];
 const PIPELINE_FORM_SX = { width: '100%', maxWidth: 960 };
 const DEVOPS_PANEL_SX = {
   p: 2.25,
@@ -87,6 +88,13 @@ const readinessRequiresAttention = (preflight) => preflight?.enforcement_enabled
 
 /* -------------------- Small utils -------------------- */
 const uid = () => Math.random().toString(36).slice(2) + Date.now().toString(36);
+
+const defaultReleaseSourceForTarget = (targetEnv) => {
+  const env = (targetEnv || '').toUpperCase();
+  if (env === 'PROD') return 'STAGE';
+  if (env === 'STAGE') return 'QA';
+  return 'DEV';
+};
 
 const parseCSV = (str) =>
   (str || '')
@@ -575,15 +583,15 @@ function PipelineForm() {
     artifact_prefix: '',
     image_json_path: '',
     template_config_path: '',
-    source_env: 'STAGE',
-    target_env: 'EKS-PROD',
+    source_env: 'DEV',
+    target_env: 'QA',
     aws_region: savedCloudConfig.aws_region || 'us-east-1',
     source_ecr_registry: savedCloudConfig.ecr_registry || '',
     source_ecr_repository: '',
     target_ecr_registry: savedCloudConfig.ecr_registry || '',
     target_ecr_repository: '',
     source_image_tag: '',
-    target_image_tag: 'prod',
+    target_image_tag: '',
     client_aws_role_arn: savedCloudConfig.client_aws_role_arn || '',
     source_aws_role_arn: savedCloudConfig.source_aws_role_arn || savedCloudConfig.nonprod_aws_role_arn || savedCloudConfig.client_aws_role_arn || '',
     target_aws_role_arn: savedCloudConfig.target_aws_role_arn || savedCloudConfig.client_aws_role_arn || '',
@@ -685,16 +693,16 @@ function PipelineForm() {
 
   const prodSourceEnvs = useMemo(() => {
     const catalogEnvs = environmentCatalog
-      .filter((environment) => environment?.is_active !== false && ['QA', 'STAGE'].includes(environment.name))
+      .filter((environment) => environment?.is_active !== false && RELEASE_SOURCE_ENVS.includes(environment.name))
       .map((environment) => environment.name);
-    return catalogEnvs.length ? catalogEnvs : ['STAGE'];
+    return catalogEnvs.length ? catalogEnvs : RELEASE_SOURCE_ENVS;
   }, [environmentCatalog]);
 
   const prodTargetEnvs = useMemo(() => {
     const catalogEnvs = environmentCatalog
-      .filter((environment) => environment?.is_active !== false && environment.name === 'PROD')
+      .filter((environment) => environment?.is_active !== false && RELEASE_TARGET_ENVS.includes(environment.name))
       .map((environment) => environment.name);
-    return catalogEnvs.length ? catalogEnvs : PROD_TARGET_ENVS;
+    return catalogEnvs.length ? catalogEnvs : RELEASE_TARGET_ENVS;
   }, [environmentCatalog]);
 
   /* -------------------- Effects -------------------- */
@@ -784,6 +792,13 @@ function PipelineForm() {
       setProdDevopsForm((current) => ({ ...current, target_env: prodTargetEnvs[0] }));
     }
   }, [prodTargetEnvs, prodDevopsForm.target_env]);
+
+  useEffect(() => {
+    const expectedSource = defaultReleaseSourceForTarget(prodDevopsForm.target_env);
+    if (prodSourceEnvs.includes(expectedSource) && prodDevopsForm.source_env !== expectedSource) {
+      setProdDevopsForm((current) => ({ ...current, source_env: expectedSource }));
+    }
+  }, [prodDevopsForm.target_env, prodDevopsForm.source_env, prodSourceEnvs]);
 
   // Regions (AWS)
   useEffect(() => {
@@ -1227,6 +1242,7 @@ function PipelineForm() {
       prod_namespace: prodDevopsForm.prod_namespace.trim(),
       secret_enabled: prodDevopsForm.secret_enabled,
       xid_array: prodDevopsForm.xid_array.trim(),
+      require_approval: prodDevopsForm.target_env === 'PROD',
       approver: prodDevopsForm.approver.trim(),
       notify_email: prodDevopsForm.notify_email.trim(),
       additional_notify_emails: prodDevopsForm.additional_notify_emails.trim(),
@@ -1239,11 +1255,11 @@ function PipelineForm() {
       if (res?.error) {
         throw new Error(res.error);
       }
-      setSubmissionStatus(res?.status || 'Prod Devops pipeline created / triggered');
+      setSubmissionStatus(res?.status || 'Release promotion pipeline created / triggered');
       setSuccessMessageOpen(true);
     } catch (err) {
       console.error(err);
-      setSubmissionStatus(`❌ Failed to create Prod Devops pipeline${err?.message ? `: ${err.message}` : ''}`);
+      setSubmissionStatus(`❌ Failed to create release promotion pipeline${err?.message ? `: ${err.message}` : ''}`);
       setErrorMessageOpen(true);
     } finally {
       setFormDisabled(false);
@@ -1916,7 +1932,7 @@ function PipelineForm() {
           </Box>
         )}
 
-        {/* ---------------- Prod Devops Pipeline ---------------- */}
+        {/* ---------------- Release Promotion Pipeline ---------------- */}
         {isProdDevops && (
           <Box sx={PIPELINE_FORM_SX}>
             <Card sx={DEVOPS_PANEL_SX}>
@@ -1944,7 +1960,8 @@ function PipelineForm() {
                   />
                 </Grid>
                 <Grid item xs={12} md={6}>
-                  <TextField fullWidth label="Production Tag" size="small" sx={DEVOPS_FIELD_SX}
+                  <TextField fullWidth label="Target Release Tag(s)" size="small" sx={DEVOPS_FIELD_SX}
+                    placeholder="Optional. Defaults to target-env + source tag."
                     value={prodDevopsForm.target_image_tag}
                     onChange={(e)=>setProdDevopsForm(s=>({...s,target_image_tag:e.target.value}))}
                   />
@@ -1974,7 +1991,7 @@ function PipelineForm() {
                   {renderEnvironmentReady(prodTargetPreflight, preflightLoading.prodTarget)}
                 </Grid>
                 <Grid item xs={12}>
-                  <FormHelperText>Artifact bucket, ECR registry, roles, cluster, namespace, and account mapping are resolved from the Environment Catalog.</FormHelperText>
+                  <FormHelperText>Artifact bucket, ECR registry, roles, cluster, namespace, and account mapping are resolved from the Environment Catalog. QA and Stage deploy the same immutable image digest built in the source environment.</FormHelperText>
                 </Grid>
               </Grid>
             </Card>
@@ -2016,7 +2033,7 @@ function PipelineForm() {
             </Card>
 
             <Button variant="contained" color="primary" type="submit" disabled={formDisabled || readinessRequiresAttention(prodSourcePreflight) || readinessRequiresAttention(prodTargetPreflight)} sx={{ display: 'block', mx: 'auto', mt: 4, borderRadius: 0, minWidth: 220 }}>
-              PROMOTE TO PRODUCTION
+              PROMOTE RELEASE
             </Button>
           </Box>
         )}
