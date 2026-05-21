@@ -1,80 +1,79 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  Alert, Box, Button, Card, Checkbox, Chip, Container, Divider, FormControl,
-  FormControlLabel, Grid, InputLabel, MenuItem, Select, Stack, TextField,
-  Typography,
+  Alert, Box, Button, Card, Chip, CircularProgress, Container, Divider, Grid,
+  Stack, Typography,
 } from '@mui/material';
 import { callBackend } from '../services/api';
-import {
-  defaultLicenseConfig,
-  getClientConfig,
-  getLicenseConfig,
-  saveLicenseConfig,
-} from '../utils/enterpriseConfig';
 
-const PIPELINES = ['Devops Pipeline', 'Test Devops Pipeline', 'Prod Devops Pipeline'];
-const FEATURES = [
-  'build',
-  'artifact_publish',
-  'code_scan',
-  'image_scan',
-  'policy_validation',
-  'static_application_security',
-  'test_suites',
-  'notifications',
-  'secret_management',
-  'prod_deploy',
-  'ai_remediation',
-];
-const ENVIRONMENTS = ['EKS-NONPROD', 'EKS-PROD'];
+const formatValue = (value) => {
+  if (value === null || value === undefined || value === '') return 'Not configured';
+  return String(value);
+};
 
-const toggleListValue = (list, value) =>
-  list.includes(value) ? list.filter((item) => item !== value) : [...list, value];
+const formatDateTime = (value) => {
+  if (!value) return 'Not available';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return value;
+  return parsed.toLocaleString();
+};
+
+function Detail({ label, value }) {
+  return (
+    <Box>
+      <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 0 }}>
+        {label}
+      </Typography>
+      <Typography variant="body1" sx={{ fontWeight: 600, overflowWrap: 'anywhere' }}>
+        {formatValue(value)}
+      </Typography>
+    </Box>
+  );
+}
+
+function ChipList({ title, values }) {
+  const list = Array.isArray(values) ? values : [];
+  return (
+    <Box>
+      <Typography variant="subtitle2" sx={{ mb: 1 }}>{title}</Typography>
+      <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+        {list.length ? list.map((item) => (
+          <Chip key={item} label={item} variant="outlined" size="small" />
+        )) : <Typography variant="body2" color="text.secondary">None</Typography>}
+      </Stack>
+    </Box>
+  );
+}
 
 function LicensePage() {
-  const [license, setLicense] = useState(getLicenseConfig());
   const [status, setStatus] = useState(null);
   const [message, setMessage] = useState('');
+  const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
 
   const daysRemaining = useMemo(() => {
-    if (!license.license_expires_at) return null;
-    const expires = new Date(license.license_expires_at).getTime();
+    if (!status?.expires_at) return null;
+    const expires = new Date(status.expires_at).getTime();
     if (Number.isNaN(expires)) return null;
     return Math.ceil((expires - Date.now()) / (1000 * 60 * 60 * 24));
-  }, [license.license_expires_at]);
+  }, [status?.expires_at]);
+
+  const loadStatus = async () => {
+    setLoading(true);
+    try {
+      const result = await callBackend('/license/status', 'GET');
+      setStatus(result);
+      setMessage('');
+    } catch (error) {
+      setStatus(error.body && typeof error.body === 'object' ? error.body : { status: 'invalid', error: error.message });
+      setMessage(error.message || 'Unable to load license status.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    callBackend('/license/status', 'GET').then((data) => {
-      setStatus(data);
-      if (!getLicenseConfig().license_expires_at && data?.expires_at) {
-        setLicense((prev) => ({
-          ...prev,
-          license_type: data.license_type || prev.license_type,
-          license_expires_at: data.expires_at,
-          enabled_pipelines: data.enabled_pipelines || prev.enabled_pipelines,
-          enabled_features: data.enabled_features || prev.enabled_features,
-          allowed_environments: data.allowed_environments || prev.allowed_environments,
-          license_mode: data.license_mode || prev.license_mode,
-          last_synced_at: data.last_synced_at || prev.last_synced_at,
-        }));
-      }
-    });
+    loadStatus();
   }, []);
-
-  const handleSave = async () => {
-    const client = getClientConfig();
-    saveLicenseConfig(license);
-    const result = await callBackend('/license/validate', 'POST', {
-      ...client,
-      ...license,
-      pipeline_name: 'Devops Pipeline',
-      target_env: license.allowed_environments?.[0] || 'EKS-NONPROD',
-      requested_features: ['build', 'artifact_publish'],
-    });
-    setStatus(result);
-    setMessage(result?.error ? result.error : 'License settings saved.');
-  };
 
   const handleSync = async () => {
     setSyncing(true);
@@ -82,31 +81,19 @@ function LicensePage() {
     try {
       const result = await callBackend('/license/sync', 'POST', { force: true });
       setStatus(result);
-      const nextLicense = {
-        ...license,
-        license_type: result.license_type || license.license_type,
-        license_expires_at: result.expires_at || license.license_expires_at,
-        enabled_pipelines: result.enabled_pipelines || license.enabled_pipelines,
-        enabled_features: result.enabled_features || license.enabled_features,
-        allowed_environments: result.allowed_environments || license.allowed_environments,
-        license_mode: result.license_mode || 'online-sync',
-        last_synced_at: result.last_synced_at || '',
-      };
-      setLicense(nextLicense);
-      saveLicenseConfig(nextLicense);
       setMessage(result.message || 'License synced successfully.');
     } catch (error) {
+      if (error.body && typeof error.body === 'object') {
+        setStatus(error.body);
+      }
       setMessage(error.message || 'License sync failed.');
     } finally {
       setSyncing(false);
     }
   };
 
-  const handleReset = () => {
-    setLicense(defaultLicenseConfig);
-    saveLicenseConfig(defaultLicenseConfig);
-    setMessage('License settings reset.');
-  };
+  const isActive = status?.status === 'active';
+  const canSync = Boolean(status?.sync_available);
 
   return (
     <Container maxWidth="lg" sx={{ py: 3 }}>
@@ -115,120 +102,79 @@ function LicensePage() {
           <Typography variant="h5" sx={{ fontWeight: 700 }}>License</Typography>
           <Typography variant="body2" color="text.secondary">Client-hosted entitlement status</Typography>
         </Box>
-        <Stack direction="row" spacing={1}>
-          <Chip label={status?.status || 'not validated'} color={status?.status === 'active' ? 'success' : 'default'} />
-          <Chip label={status?.validation_mode || 'local'} variant="outlined" />
-          <Chip label={status?.license_mode || license.license_mode || 'offline-file'} variant="outlined" />
-          {daysRemaining !== null && <Chip label={`${daysRemaining} days remaining`} color={daysRemaining > 7 ? 'primary' : 'warning'} />}
+        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+          <Chip label={status?.status || 'loading'} color={isActive ? 'success' : 'default'} />
+          <Chip label={status?.license_mode || 'offline-file'} variant="outlined" />
+          <Chip label={status?.validation_mode || 'unknown'} variant="outlined" />
+          {daysRemaining !== null && (
+            <Chip label={`${daysRemaining} days remaining`} color={daysRemaining > 7 ? 'primary' : 'warning'} />
+          )}
         </Stack>
       </Stack>
 
-      {message && <Alert severity={message.includes('denied') || message.includes('invalid') ? 'error' : 'success'} sx={{ mt: 2 }}>{message}</Alert>}
+      {message && (
+        <Alert severity={message.toLowerCase().includes('fail') || message.toLowerCase().includes('invalid') ? 'error' : 'success'} sx={{ mt: 2 }}>
+          {message}
+        </Alert>
+      )}
 
-      <Grid container spacing={2} sx={{ mt: 1 }}>
-        <Grid item xs={12} md={5}>
-          <Card sx={{ p: 2, borderRadius: 1 }}>
-            <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 2 }}>License Details</Typography>
-            <Stack spacing={2}>
-              <TextField
-                label="License Mode"
-                value={license.license_mode || status?.license_mode || 'offline-file'}
-                fullWidth
-                InputProps={{ readOnly: true }}
-              />
-              <TextField
-                label="Last Synced At"
-                value={license.last_synced_at || status?.last_synced_at || 'Not synced'}
-                fullWidth
-                InputProps={{ readOnly: true }}
-              />
-              <TextField
-                label="License Key"
-                type="password"
-                value={license.license_key}
-                onChange={(e) => setLicense((prev) => ({ ...prev, license_key: e.target.value }))}
-                fullWidth
-              />
-              <TextField
-                label="License Signature"
-                type="password"
-                value={license.license_signature}
-                onChange={(e) => setLicense((prev) => ({ ...prev, license_signature: e.target.value }))}
-                fullWidth
-              />
-              <FormControl fullWidth>
-                <InputLabel>License Type</InputLabel>
-                <Select
-                  label="License Type"
-                  value={license.license_type}
-                  onChange={(e) => setLicense((prev) => ({ ...prev, license_type: e.target.value }))}
-                >
-                  <MenuItem value="trial">Trial</MenuItem>
-                  <MenuItem value="paid">Paid</MenuItem>
-                  <MenuItem value="enterprise">Enterprise</MenuItem>
-                  <MenuItem value="internal">Internal</MenuItem>
-                </Select>
-              </FormControl>
-              <TextField
-                label="Expires At"
-                type="datetime-local"
-                value={(license.license_expires_at || '').replace('Z', '').slice(0, 16)}
-                onChange={(e) => setLicense((prev) => ({ ...prev, license_expires_at: `${e.target.value}:00Z` }))}
-                fullWidth
-                InputLabelProps={{ shrink: true }}
-              />
-            </Stack>
-          </Card>
-        </Grid>
+      {loading ? (
+        <Stack alignItems="center" sx={{ py: 8 }}>
+          <CircularProgress />
+        </Stack>
+      ) : (
+        <Grid container spacing={2} sx={{ mt: 1 }}>
+          <Grid item xs={12} md={5}>
+            <Card sx={{ p: 2, borderRadius: 1 }}>
+              <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 2 }}>Subscription</Typography>
+              <Stack spacing={2}>
+                <Detail label="Client" value={status?.client_name || status?.client_id} />
+                <Detail label="Client ID" value={status?.client_id} />
+                <Detail label="Installation ID" value={status?.installation_id} />
+                <Detail label="License Key" value={status?.license_key} />
+                <Detail label="License Type" value={status?.license_type} />
+                <Detail label="Issuer" value={status?.issuer} />
+                <Detail label="Issued At" value={formatDateTime(status?.issued_at)} />
+                <Detail label="Expires At" value={formatDateTime(status?.expires_at)} />
+                <Detail label="Last Synced At" value={formatDateTime(status?.last_synced_at)} />
+              </Stack>
+            </Card>
+          </Grid>
 
-        <Grid item xs={12} md={7}>
-          <Card sx={{ p: 2, borderRadius: 1 }}>
-            <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1 }}>Entitlements</Typography>
-            <Divider sx={{ mb: 2 }} />
-            <Typography variant="subtitle2">Pipelines</Typography>
-            <Grid container>
-              {PIPELINES.map((pipeline) => (
-                <Grid item xs={12} md={4} key={pipeline}>
-                  <FormControlLabel
-                    control={<Checkbox checked={license.enabled_pipelines.includes(pipeline)} onChange={() => setLicense((prev) => ({ ...prev, enabled_pipelines: toggleListValue(prev.enabled_pipelines, pipeline) }))} />}
-                    label={pipeline}
-                  />
-                </Grid>
-              ))}
+          <Grid item xs={12} md={7}>
+            <Card sx={{ p: 2, borderRadius: 1 }}>
+              <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1 }}>Entitlements</Typography>
+              <Divider sx={{ mb: 2 }} />
+              <Stack spacing={2.5}>
+                <ChipList title="Enabled Pipelines" values={status?.enabled_pipelines} />
+                <ChipList title="Enabled Features" values={status?.enabled_features?.map((item) => item.replaceAll('_', ' '))} />
+                <ChipList title="Allowed Environments" values={status?.allowed_environments} />
+                <ChipList title="Allowed AWS Accounts" values={status?.allowed_aws_account_ids} />
+                <Box>
+                  <Typography variant="subtitle2" sx={{ mb: 1 }}>Usage Limits</Typography>
+                  <Grid container spacing={1.5}>
+                    <Grid item xs={12} sm={4}><Detail label="Repositories" value={status?.max_repos || status?.limits?.max_repos} /></Grid>
+                    <Grid item xs={12} sm={4}><Detail label="Builds / Month" value={status?.max_builds_per_month || status?.limits?.max_builds_per_month} /></Grid>
+                    <Grid item xs={12} sm={4}><Detail label="Users" value={status?.max_users || status?.limits?.max_users} /></Grid>
+                  </Grid>
+                </Box>
+              </Stack>
+            </Card>
+          </Grid>
+
+          {status?.error && (
+            <Grid item xs={12}>
+              <Alert severity="error">{status.error}</Alert>
             </Grid>
-
-            <Typography variant="subtitle2" sx={{ mt: 2 }}>Features</Typography>
-            <Grid container>
-              {FEATURES.map((feature) => (
-                <Grid item xs={12} md={4} key={feature}>
-                  <FormControlLabel
-                    control={<Checkbox checked={license.enabled_features.includes(feature)} onChange={() => setLicense((prev) => ({ ...prev, enabled_features: toggleListValue(prev.enabled_features, feature) }))} />}
-                    label={feature.replaceAll('_', ' ')}
-                  />
-                </Grid>
-              ))}
-            </Grid>
-
-            <Typography variant="subtitle2" sx={{ mt: 2 }}>Environments</Typography>
-            <Stack direction="row" spacing={2}>
-              {ENVIRONMENTS.map((environment) => (
-                <FormControlLabel
-                  key={environment}
-                  control={<Checkbox checked={license.allowed_environments.includes(environment)} onChange={() => setLicense((prev) => ({ ...prev, allowed_environments: toggleListValue(prev.allowed_environments, environment) }))} />}
-                  label={environment}
-                />
-              ))}
-            </Stack>
-          </Card>
+          )}
         </Grid>
-      </Grid>
+      )}
 
       <Stack direction="row" spacing={1.5} sx={{ mt: 2 }}>
-        <Button variant="contained" onClick={handleSave}>Save And Validate</Button>
-        <Button variant="contained" color="secondary" onClick={handleSync} disabled={syncing}>
+        <Button variant="contained" color="secondary" onClick={handleSync} disabled={syncing || !canSync}>
           {syncing ? 'Syncing...' : 'Sync License'}
         </Button>
-        <Button variant="outlined" onClick={handleReset}>Reset</Button>
+        <Button variant="outlined" onClick={loadStatus}>Refresh Status</Button>
       </Stack>
     </Container>
   );
