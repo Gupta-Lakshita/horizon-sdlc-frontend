@@ -106,6 +106,11 @@ function LicensePage() {
           <Chip label={status?.status || 'loading'} color={isActive ? 'success' : 'default'} />
           <Chip label={status?.license_mode || 'offline-file'} variant="outlined" />
           <Chip label={status?.validation_mode || 'unknown'} variant="outlined" />
+          <Chip
+            label={status?.usage_reporting_enabled ? 'usage reporting on' : 'usage reporting off'}
+            color={status?.usage_reporting_enabled ? 'success' : 'default'}
+            variant="outlined"
+          />
           {daysRemaining !== null && (
             <Chip label={`${daysRemaining} days remaining`} color={daysRemaining > 7 ? 'primary' : 'warning'} />
           )}
@@ -137,6 +142,8 @@ function LicensePage() {
                 <Detail label="Issued At" value={formatDateTime(status?.issued_at)} />
                 <Detail label="Expires At" value={formatDateTime(status?.expires_at)} />
                 <Detail label="Last Synced At" value={formatDateTime(status?.last_synced_at)} />
+                <Detail label="Usage Reporting" value={status?.usage_reporting_enabled ? 'Enabled' : 'Disabled'} />
+                <Detail label="Usage Endpoint" value={status?.usage_endpoint_configured ? 'Configured' : 'Not configured'} />
               </Stack>
             </Card>
           </Grid>
