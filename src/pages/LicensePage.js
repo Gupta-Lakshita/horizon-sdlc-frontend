@@ -179,6 +179,9 @@ function LicensePage() {
                 <Detail label="License Key" value={status?.license_key} />
                 <Detail label="License Type" value={status?.license_type} />
                 <Detail label="Issuer" value={status?.issuer} />
+                <Detail label="Signature Mode" value={status?.signature_mode} />
+                <Detail label="Signature Algorithm" value={status?.signature_algorithm} />
+                <Detail label="Signature Key ID" value={status?.signature_key_id} />
                 <Detail label="Issued At" value={formatDateTime(status?.issued_at)} />
                 <Detail label="Expires At" value={formatDateTime(status?.expires_at)} />
                 <Detail label="Last Synced At" value={formatDateTime(status?.last_synced_at)} />
