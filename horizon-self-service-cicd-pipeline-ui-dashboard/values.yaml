@@ -7,6 +7,8 @@ image:
   tag: "1.4.26"
   pullPolicy: Always
 
+imagePullSecrets: []
+
 service:
   type: ClusterIP
   port: 80
