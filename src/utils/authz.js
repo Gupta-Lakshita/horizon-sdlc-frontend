@@ -13,3 +13,8 @@ export function userRoles(user) {
 export function isPlatformAdmin(user) {
   return userRoles(user).includes('platform-admin');
 }
+
+export function hasFeature(licenseStatus, feature) {
+  return Array.isArray(licenseStatus?.enabled_features)
+    && licenseStatus.enabled_features.includes(feature);
+}

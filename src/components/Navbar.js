@@ -2,8 +2,9 @@ import './Navbar.css';
 import { useNavigate } from 'react-router-dom';
 import { Button, Stack } from '@mui/material';
 import { isPlatformAdmin } from '../utils/authz';
+import { hasFeature } from '../utils/license';
 
-function Navbar() {
+function Navbar({ licenseStatus }) {
     const navigate = useNavigate();
     const user = JSON.parse(localStorage.getItem('user'));
     const isAdmin = isPlatformAdmin(user);
@@ -16,7 +17,11 @@ function Navbar() {
     return (
         <nav className="navbar">
             <div className="logo-container">
-                <img src={`${process.env.PUBLIC_URL}/jenkins.png`} alt="Jenkins Kubernetes Deployment" className="logo" />
+                <img
+                    src={`${process.env.PUBLIC_URL}/jenkins.png`}
+                    alt="Jenkins Kubernetes Deployment"
+                    className="logo"
+                />
                 <span className="company-name">Horizon Relevance</span>
             </div>
 
@@ -24,17 +29,73 @@ function Navbar() {
                 {user ? (
                     <>
                         <Stack direction="row" spacing={0.5} className="nav-links">
-                            <Button color="inherit" size="small" onClick={() => navigate('/')}>Pipelines</Button>
-                            <Button color="inherit" size="small" onClick={() => navigate('/vulnerabilities')}>Findings</Button>
-                            {isAdmin && <Button color="inherit" size="small" onClick={() => navigate('/client-settings')}>Client</Button>}
-                            {isAdmin && <Button color="inherit" size="small" onClick={() => navigate('/environment-catalog')}>Environment Catalog</Button>}
-                            {isAdmin && <Button color="inherit" size="small" onClick={() => navigate('/license')}>License</Button>}
+                            <Button
+                                color="inherit"
+                                size="small"
+                                onClick={() => navigate('/')}
+                            >
+                                Pipelines
+                            </Button>
+
+                            <Button
+                                color="inherit"
+                                size="small"
+                                onClick={() => navigate('/vulnerabilities')}
+                            >
+                                Findings
+                            </Button>
+
+                            {hasFeature(licenseStatus, 'release_trust') && (
+                                <Button
+                                    color="inherit"
+                                    size="small"
+                                    onClick={() => navigate('/release-trust')}
+                                >
+                                    Supply Chain
+                                </Button>
+                            )}
+
+                            {isAdmin && (
+                                <Button
+                                    color="inherit"
+                                    size="small"
+                                    onClick={() => navigate('/client-settings')}
+                                >
+                                    Client
+                                </Button>
+                            )}
+
+                            {isAdmin && (
+                                <Button
+                                    color="inherit"
+                                    size="small"
+                                    onClick={() => navigate('/environment-catalog')}
+                                >
+                                    Environment Catalog
+                                </Button>
+                            )}
+
+                            {isAdmin && (
+                                <Button
+                                    color="inherit"
+                                    size="small"
+                                    onClick={() => navigate('/license')}
+                                >
+                                    License
+                                </Button>
+                            )}
                         </Stack>
+
                         <span className="username">{user.fullName}</span>
-                        <Button color="inherit" onClick={handleLogout}>Logout</Button>
+
+                        <Button color="inherit" onClick={handleLogout}>
+                            Logout
+                        </Button>
                     </>
                 ) : (
-                    <Button color="inherit" onClick={() => navigate('/login')}>Login</Button>
+                    <Button color="inherit" onClick={() => navigate('/login')}>
+                        Login
+                    </Button>
                 )}
             </div>
         </nav>

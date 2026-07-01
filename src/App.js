@@ -18,6 +18,29 @@ const AdminRoute = ({ children }) => {
     return isPlatformAdmin(user) ? children : <Navigate to="/" />;
 };
 
+// Add state at App level
+const [licenseStatus, setLicenseStatus] = useState(null);
+useEffect(() => {
+  const user = JSON.parse(localStorage.getItem('user'));
+  if (user) callBackend('/license/status').then(setLicenseStatus).catch(() => {});
+}, []);
+
+// New route guard
+const EnterpriseRoute = ({ children }) => {
+  const user = JSON.parse(localStorage.getItem('user'));
+  if (!user) return <Navigate to="/login" />;
+  if (!hasFeature(licenseStatus, 'release_trust')) return <Navigate to="/upgrade" />;
+  return children;
+};
+
+// Routes
+<Route path="/release-trust" element={
+  <PrivateRoute><EnterpriseRoute><ReleaseTrustDashboard /></EnterpriseRoute></PrivateRoute>
+} />
+<Route path="/release-trust/:releaseId" element={
+  <PrivateRoute><EnterpriseRoute><ReleaseTrustDetail /></EnterpriseRoute></PrivateRoute>
+} />
+
 function App() {
     return (
         <Router basename="/pipeline">
