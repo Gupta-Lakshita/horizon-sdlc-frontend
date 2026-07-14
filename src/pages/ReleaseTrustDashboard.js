@@ -1,18 +1,19 @@
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { DataGrid } from '@mui/x-data-grid';
 import {
-  Box, Card, CardContent, Chip, Container, Grid, Typography,
+  Alert,
+  Box,
+  Button,
+  Card,
+  CardContent,
+  Chip,
+  CircularProgress,
+  Container,
+  Grid,
+  Typography,
 } from '@mui/material';
-
-const releaseTrustRows = [
-  {
-    id: 1,
-    release_id: 'rel-2026-07-001',
-    commit_sha: '8f3a2c9',
-    image_digest: 'sha256:placeholder-release-digest',
-    policy_status: 'warn',
-    sbom_status: 'generated',
-  },
-];
+import { callBackend } from '../services/api';
 
 const statusColors = {
   pass: 'success',
@@ -20,15 +21,87 @@ const statusColors = {
   block: 'error',
   generated: 'success',
   missing: 'default',
+  verified: 'success',
+  failed: 'error',
 };
+
+function normalizeRelease(release, index) {
+  return {
+    id: release.id || release.release_id || release.releaseId || index,
+    release_id: release.release_id || release.releaseId || 'unknown',
+    commit_sha: release.commit_sha || release.commitSha || 'N/A',
+    image_digest: release.image_digest || release.imageDigest || 'N/A',
+    policy_status: (release.policy_status || release.policyStatus || 'unknown').toString().toLowerCase(),
+    sbom_status: (release.sbom_status || release.sbomStatus || 'unknown').toString().toLowerCase(),
+  };
+}
 
 function StatusChip({ value }) {
   return <Chip label={value || 'unknown'} color={statusColors[value] || 'default'} size="small" />;
 }
 
+function SummaryCard({ title, value, color }) {
+  return (
+    <Card sx={{ minWidth: 180 }}>
+      <CardContent>
+        <Typography variant="h6">{title}</Typography>
+        <Typography variant="h5" color={color || 'text.primary'}>{value}</Typography>
+      </CardContent>
+    </Card>
+  );
+}
+
 function ReleaseTrustDashboard() {
+  const navigate = useNavigate();
+  const [releases, setReleases] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  const loadReleases = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const data = await callBackend('/release-trust/runs', 'GET');
+      const rows = Array.isArray(data)
+        ? data
+        : Array.isArray(data?.items)
+          ? data.items
+          : Array.isArray(data?.runs)
+            ? data.runs
+            : [];
+      setReleases(rows.map((release, index) => normalizeRelease(release, index)));
+    } catch (loadError) {
+      setReleases([]);
+      setError(loadError.message || 'Unable to load Release Trust runs.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadReleases();
+  }, []);
+
+  const policyPassCount = releases.filter((release) => release.policy_status === 'pass').length;
+  const policyWarnCount = releases.filter((release) => release.policy_status === 'warn').length;
+  const policyBlockCount = releases.filter((release) => release.policy_status === 'block').length;
+  const sbomReadyCount = releases.filter((release) => ['generated', 'verified', 'pass'].includes(release.sbom_status)).length;
+
   const columns = [
-    { field: 'release_id', headerName: 'Release ID', width: 180 },
+    {
+      field: 'release_id',
+      headerName: 'Release ID',
+      width: 180,
+      renderCell: (params) => (
+        <Button
+          variant="text"
+          sx={{ minWidth: 0, px: 0, textTransform: 'none' }}
+          onClick={() => navigate(`/release-trust/${params.value}`)}
+        >
+          {params.value}
+        </Button>
+      ),
+    },
     { field: 'commit_sha', headerName: 'Commit SHA', width: 140 },
     { field: 'image_digest', headerName: 'Image Digest', width: 320 },
     {
@@ -47,47 +120,75 @@ function ReleaseTrustDashboard() {
 
   return (
     <Container maxWidth="xl" sx={{ mt: 4 }}>
-      <Typography variant="h4" gutterBottom>Release Trust Dashboard</Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        Release evidence, policy status, SBOM status, and image digest traceability.
-      </Typography>
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: { xs: 'flex-start', sm: 'center' },
+          flexDirection: { xs: 'column', sm: 'row' },
+          gap: 2,
+          mb: 2,
+        }}
+      >
+        <Box>
+          <Typography variant="h4" gutterBottom>Release Trust Dashboard</Typography>
+          <Typography variant="body2" color="text.secondary">
+            Release evidence, policy status, SBOM status, and image digest traceability.
+          </Typography>
+        </Box>
+        <Button variant="contained" onClick={loadReleases} disabled={loading}>
+          {loading ? 'Refreshing...' : 'Refresh'}
+        </Button>
+      </Box>
 
       <Grid container spacing={2} sx={{ mb: 2 }}>
         <Grid item>
-          <Card sx={{ minWidth: 180 }}>
-            <CardContent>
-              <Typography variant="h6">Tracked Releases</Typography>
-              <Typography variant="h5">{releaseTrustRows.length}</Typography>
-            </CardContent>
-          </Card>
+          <SummaryCard title="Tracked Releases" value={releases.length} />
         </Grid>
         <Grid item>
-          <Card sx={{ minWidth: 180 }}>
-            <CardContent>
-              <Typography variant="h6">Policy Status</Typography>
-              <StatusChip value={releaseTrustRows[0].policy_status} />
-            </CardContent>
-          </Card>
+          <SummaryCard title="Policy Pass" value={policyPassCount} color="success.main" />
         </Grid>
         <Grid item>
-          <Card sx={{ minWidth: 180 }}>
-            <CardContent>
-              <Typography variant="h6">SBOM Status</Typography>
-              <StatusChip value={releaseTrustRows[0].sbom_status} />
-            </CardContent>
-          </Card>
+          <SummaryCard title="Policy Warn" value={policyWarnCount} color="warning.main" />
+        </Grid>
+        <Grid item>
+          <SummaryCard title="Policy Block" value={policyBlockCount} color="error.main" />
+        </Grid>
+        <Grid item>
+          <SummaryCard title="SBOM Ready" value={sbomReadyCount} color="info.main" />
         </Grid>
       </Grid>
 
-      <Box sx={{ height: 420, width: '100%' }}>
-        <DataGrid
-          rows={releaseTrustRows}
-          columns={columns}
-          pageSize={10}
-          rowsPerPageOptions={[10]}
-          disableSelectionOnClick
-        />
-      </Box>
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+      )}
+
+      {loading ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
+          <CircularProgress />
+        </Box>
+      ) : releases.length === 0 ? (
+        <Card>
+          <CardContent>
+            <Typography variant="h6" gutterBottom>No Release Trust runs found</Typography>
+            <Typography variant="body2" color="text.secondary">
+              The backend returned no Release Trust run data for this environment yet.
+            </Typography>
+          </CardContent>
+        </Card>
+      ) : (
+        <Box sx={{ height: 420, width: '100%' }}>
+          <DataGrid
+            rows={releases}
+            columns={columns}
+            pageSize={10}
+            rowsPerPageOptions={[10, 20, 50]}
+            disableSelectionOnClick
+          />
+        </Box>
+      )}
     </Container>
   );
 }
