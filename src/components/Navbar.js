@@ -2,9 +2,8 @@ import './Navbar.css';
 import { useNavigate } from 'react-router-dom';
 import { Button, Stack } from '@mui/material';
 import { isPlatformAdmin } from '../utils/authz';
-import { hasFeature } from '../utils/license';
 
-function Navbar({ licenseStatus }) {
+function Navbar() {
     const navigate = useNavigate();
     const user = JSON.parse(localStorage.getItem('user'));
     const isAdmin = isPlatformAdmin(user);
@@ -45,15 +44,13 @@ function Navbar({ licenseStatus }) {
                                 Findings
                             </Button>
 
-                            {hasFeature(licenseStatus, 'release_trust') && (
-                                <Button
-                                    color="inherit"
-                                    size="small"
-                                    onClick={() => navigate('/release-trust')}
-                                >
-                                    Supply Chain
-                                </Button>
-                            )}
+                            <Button
+                                color="inherit"
+                                size="small"
+                                onClick={() => navigate('/release-trust')}
+                            >
+                                Release Trust
+                            </Button>
 
                             {isAdmin && (
                                 <Button

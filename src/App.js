@@ -6,6 +6,8 @@ import VulnerabilitiesPage from './pages/VulnerabilitiesPage';
 import LicensePage from './pages/LicensePage';
 import ClientSettingsPage from './pages/ClientSettingsPage';
 import CloudConnectorPage from './pages/CloudConnectorPage';
+import ReleaseTrustDashboard from './pages/ReleaseTrustDashboard';
+import ReleaseTrustDetail from './pages/ReleaseTrustDetail';
 import { isPlatformAdmin } from './utils/authz';
 
 const PrivateRoute = ({ children }) => {
@@ -18,29 +20,6 @@ const AdminRoute = ({ children }) => {
     return isPlatformAdmin(user) ? children : <Navigate to="/" />;
 };
 
-// Add state at App level
-const [licenseStatus, setLicenseStatus] = useState(null);
-useEffect(() => {
-  const user = JSON.parse(localStorage.getItem('user'));
-  if (user) callBackend('/license/status').then(setLicenseStatus).catch(() => {});
-}, []);
-
-// New route guard
-const EnterpriseRoute = ({ children }) => {
-  const user = JSON.parse(localStorage.getItem('user'));
-  if (!user) return <Navigate to="/login" />;
-  if (!hasFeature(licenseStatus, 'release_trust')) return <Navigate to="/upgrade" />;
-  return children;
-};
-
-// Routes
-<Route path="/release-trust" element={
-  <PrivateRoute><EnterpriseRoute><ReleaseTrustDashboard /></EnterpriseRoute></PrivateRoute>
-} />
-<Route path="/release-trust/:releaseId" element={
-  <PrivateRoute><EnterpriseRoute><ReleaseTrustDetail /></EnterpriseRoute></PrivateRoute>
-} />
-
 function App() {
     return (
         <Router basename="/pipeline">
@@ -49,6 +28,8 @@ function App() {
                 <Route path="/" element={<PrivateRoute><PipelineForm /></PrivateRoute>} />
                 <Route path="/login" element={<Login />} />
                 <Route path="/vulnerabilities" element={<PrivateRoute><VulnerabilitiesPage /></PrivateRoute>} />
+                <Route path="/release-trust" element={<PrivateRoute><ReleaseTrustDashboard /></PrivateRoute>} />
+                <Route path="/release-trust/:releaseId" element={<PrivateRoute><ReleaseTrustDetail /></PrivateRoute>} />
                 <Route path="/license" element={<PrivateRoute><AdminRoute><LicensePage /></AdminRoute></PrivateRoute>} />
                 <Route path="/client-settings" element={<PrivateRoute><AdminRoute><ClientSettingsPage /></AdminRoute></PrivateRoute>} />
                 <Route path="/environment-catalog" element={<PrivateRoute><AdminRoute><CloudConnectorPage /></AdminRoute></PrivateRoute>} />
