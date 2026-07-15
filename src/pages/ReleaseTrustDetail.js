@@ -113,8 +113,12 @@ function ReleaseTrustDetail() {
         );
     }
 
+    const releaseSummary = release.release || {};
     const artifact = release.artifact || {};
-    const evidence = release.supply_chain_evidence || {};
+    const sbom = release.sbom || {};
+    const signature = release.signature || {};
+    const provenance = release.provenance || {};
+    const scanEvidence = release.scan_evidence || {};
     const policy = release.policy_evaluation || {};
     const promotion = release.promotion || {};
 
@@ -135,13 +139,13 @@ function ReleaseTrustDetail() {
                 <Grid item xs={12}>
                     <Section title="Release Summary">
                         <Grid container spacing={2}>
-                            <Grid item xs={12} md={6}><Detail label="Release ID" value={release.release_id} /></Grid>
-                            <Grid item xs={12} md={6}><Detail label="Application" value={release.application} /></Grid>
-                            <Grid item xs={12} md={6}><Detail label="Environment" value={release.environment} /></Grid>
-                            <Grid item xs={12} md={6}><Detail label="Build Number" value={release.build_number} /></Grid>
-                            <Grid item xs={12} md={6}><Detail label="Build Time" value={release.build_time} /></Grid>
-                            <Grid item xs={12} md={6}><Detail label="Commit SHA" value={release.commit_sha} /></Grid>
-                            <Grid item xs={12}><Detail label="Branch" value={release.branch} /></Grid>
+                            <Grid item xs={12} md={6}><Detail label="Release ID" value={releaseSummary.release_id} /></Grid>
+                            <Grid item xs={12} md={6}><Detail label="Application" value={releaseSummary.application} /></Grid>
+                            <Grid item xs={12} md={6}><Detail label="Environment" value={releaseSummary.environment} /></Grid>
+                            <Grid item xs={12} md={6}><Detail label="Build Number" value={releaseSummary.build_number} /></Grid>
+                            <Grid item xs={12} md={6}><Detail label="Build Time" value={releaseSummary.build_time} /></Grid>
+                            <Grid item xs={12} md={6}><Detail label="Commit SHA" value={releaseSummary.commit_sha} /></Grid>
+                            <Grid item xs={12}><Detail label="Branch" value={releaseSummary.branch} /></Grid>
                         </Grid>
                     </Section>
                 </Grid>
@@ -158,10 +162,10 @@ function ReleaseTrustDetail() {
                 <Grid item xs={12} md={6}>
                     <Section title="Supply Chain Evidence">
                         <Grid container spacing={2}>
-                            <Grid item xs={6}><Typography variant="body2">SBOM Status</Typography><StatusChip value={evidence.sbom_status} /></Grid>
-                            <Grid item xs={6}><Typography variant="body2">Signature Status</Typography><StatusChip value={evidence.signature_status} /></Grid>
-                            <Grid item xs={6}><Typography variant="body2">Provenance Status</Typography><StatusChip value={evidence.provenance_status} /></Grid>
-                            <Grid item xs={6}><Typography variant="body2">Scan Status</Typography><StatusChip value={evidence.scan_status} /></Grid>
+                            <Grid item xs={6}><Typography variant="body2">SBOM Status</Typography><StatusChip value={sbom.status} /></Grid>
+                            <Grid item xs={6}><Typography variant="body2">Signature Status</Typography><StatusChip value={signature.status} /></Grid>
+                            <Grid item xs={6}><Typography variant="body2">Provenance Status</Typography><StatusChip value={provenance.status} /></Grid>
+                            <Grid item xs={6}><Typography variant="body2">Scan Status</Typography><StatusChip value={scanEvidence.status} /></Grid>
                         </Grid>
                     </Section>
                 </Grid>
