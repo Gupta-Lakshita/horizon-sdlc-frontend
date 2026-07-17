@@ -4,9 +4,8 @@
 .env
 .env.*
 node_modules
-src
-public
 horizon-self-service-cicd-pipeline-ui-dashboard
+build
 *.log
 *.map
 coverage
