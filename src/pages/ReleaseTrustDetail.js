@@ -120,6 +120,7 @@ function ReleaseTrustDetail() {
     const provenance = release.provenance || {};
     const scanEvidence = release.scan_evidence || {};
     const policy = release.policy_evaluation || {};
+    const policyRules = Array.isArray(policy.rules) ? policy.rules : [];
     const promotion = release.promotion || {};
 
     return (
@@ -176,6 +177,31 @@ function ReleaseTrustDetail() {
                             <Grid item xs={4}><Detail label="Passed Rules" value={policy.passed_rules} /></Grid>
                             <Grid item xs={4}><Detail label="Warning Rules" value={policy.warning_rules} /></Grid>
                             <Grid item xs={4}><Detail label="Blocked Rules" value={policy.blocked_rules} /></Grid>
+                            {policy.summary && (
+                                <Grid item xs={12}><Detail label="Summary" value={policy.summary} /></Grid>
+                            )}
+                            <Grid item xs={12}>
+                                <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 0 }}>
+                                    Rule Results
+                                </Typography>
+                                <Stack spacing={1} sx={{ mt: 1 }}>
+                                    {policyRules.length ? policyRules.map((rule) => (
+                                        <Stack
+                                            key={rule.rule}
+                                            direction="row"
+                                            spacing={1}
+                                            alignItems="center"
+                                            justifyContent="space-between"
+                                            sx={{ borderBottom: '1px solid', borderColor: 'divider', pb: 1 }}
+                                        >
+                                            <Typography variant="body2" sx={{ fontWeight: 600 }}>{rule.rule}</Typography>
+                                            <StatusChip value={rule.result} />
+                                        </Stack>
+                                    )) : (
+                                        <Typography variant="body2" color="text.secondary">No per-rule evaluation available.</Typography>
+                                    )}
+                                </Stack>
+                            </Grid>
                         </Grid>
                     </Section>
                 </Grid>
