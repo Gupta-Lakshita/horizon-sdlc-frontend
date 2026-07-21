@@ -19,6 +19,9 @@ const statusColors = {
   pass: 'success',
   warn: 'warning',
   block: 'error',
+  allow: 'success',
+  manual_approval: 'warning',
+  deny: 'error',
   generated: 'success',
   missing: 'default',
   verified: 'success',
@@ -32,6 +35,7 @@ function normalizeRelease(release, index) {
     commit_sha: release.commit_sha || release.commitSha || 'N/A',
     image_digest: release.image_digest || release.imageDigest || 'N/A',
     policy_status: (release.policy_status || release.policyStatus || 'unknown').toString().toLowerCase(),
+    promotion_status: (release.promotion_status || release.promotionStatus || 'not requested').toString().toLowerCase(),
     sbom_status: (release.sbom_status || release.sbomStatus || 'unknown').toString().toLowerCase(),
   };
 }
@@ -108,6 +112,12 @@ function ReleaseTrustDashboard() {
       field: 'policy_status',
       headerName: 'Policy Status',
       width: 150,
+      renderCell: (params) => <StatusChip value={params.value} />,
+    },
+    {
+      field: 'promotion_status',
+      headerName: 'Promotion',
+      width: 180,
       renderCell: (params) => <StatusChip value={params.value} />,
     },
     {

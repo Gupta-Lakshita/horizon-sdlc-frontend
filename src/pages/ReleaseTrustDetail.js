@@ -24,6 +24,9 @@ const statusColors = {
     warn: 'warning',
     eligible_with_warnings: 'warning',
     block: 'error',
+    allow: 'success',
+    manual_approval: 'warning',
+    deny: 'error',
     failed: 'error',
 };
 
@@ -122,6 +125,7 @@ function ReleaseTrustDetail() {
     const policy = release.policy_evaluation || {};
     const policyRules = Array.isArray(policy.rules) ? policy.rules : [];
     const promotion = release.promotion || {};
+    const promotionDecision = release.promotion_decision;
 
     return (
         <Container maxWidth="lg" sx={{ py: 3 }}>
@@ -206,8 +210,13 @@ function ReleaseTrustDetail() {
                     </Section>
                 </Grid>
                 <Grid item xs={12} md={6}>
-                    <Section title="Promotion">
+                    <Section title="Promotion Gate">
                         <Stack spacing={2}>
+                            <Box><Typography variant="body2">Promotion Decision</Typography><StatusChip value={promotionDecision?.promotion_status} /></Box>
+                            <Detail label="Policy Status" value={promotionDecision?.policy_status} />
+                            <Detail label="Reason" value={promotionDecision?.reason} />
+                            <Detail label="Timestamp" value={promotionDecision?.timestamp} />
+                            <Detail label="Actor" value={promotionDecision?.actor} />
                             <Detail label="Current Environment" value={promotion.current_environment} />
                             <Box>
                                 <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 0 }}>Promotion History</Typography>
