@@ -117,6 +117,7 @@ function ReleaseTrustDetail() {
     }
 
     const releaseSummary = release.release || {};
+    const context = release.context || {};
     const artifact = release.artifact || {};
     const sbom = release.sbom || {};
     const signature = release.signature || {};
@@ -141,6 +142,23 @@ function ReleaseTrustDetail() {
             </Stack>
 
             <Grid container spacing={2}>
+                <Grid item xs={12}>
+                    <Section title="Platform Context">
+                        {context.application_id ? (
+                            <Grid container spacing={2}>
+                                <Grid item xs={12} md={6}><Detail label="Application" value={context.application_name} /></Grid>
+                                <Grid item xs={12} md={6}><Detail label="Application ID" value={context.application_id} /></Grid>
+                                <Grid item xs={12} md={6}><Detail label="Repository" value={context.repository_url} /></Grid>
+                                <Grid item xs={12} md={6}><Detail label="Repository Branch" value={context.repository_branch} /></Grid>
+                                <Grid item xs={12}><Detail label="Application Type" value={context.application_type} /></Grid>
+                            </Grid>
+                        ) : (
+                            <Typography variant="body2" color="text.secondary">
+                                This legacy release is not linked to a platform application.
+                            </Typography>
+                        )}
+                    </Section>
+                </Grid>
                 <Grid item xs={12}>
                     <Section title="Release Summary">
                         <Grid container spacing={2}>

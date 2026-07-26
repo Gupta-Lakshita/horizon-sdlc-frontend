@@ -29,6 +29,7 @@ const statusColors = {
 };
 
 function normalizeRelease(release, index) {
+  const context = release.context || {};
   return {
     id: release.id || release.release_id || release.releaseId || index,
     release_id: release.release_id || release.releaseId || 'unknown',
@@ -37,6 +38,8 @@ function normalizeRelease(release, index) {
     policy_status: (release.policy_status || release.policyStatus || 'unknown').toString().toLowerCase(),
     promotion_status: (release.promotion_status || release.promotionStatus || 'not requested').toString().toLowerCase(),
     sbom_status: (release.sbom_status || release.sbomStatus || 'unknown').toString().toLowerCase(),
+    application_name: context.application_name || release.application || 'Unlinked legacy release',
+    repository_url: context.repository_url || 'N/A',
   };
 }
 
@@ -107,6 +110,8 @@ function ReleaseTrustDashboard() {
       ),
     },
     { field: 'commit_sha', headerName: 'Commit SHA', width: 140 },
+    { field: 'application_name', headerName: 'Application', width: 200 },
+    { field: 'repository_url', headerName: 'Repository', width: 260 },
     { field: 'image_digest', headerName: 'Image Digest', width: 320 },
     {
       field: 'policy_status',
@@ -143,7 +148,7 @@ function ReleaseTrustDashboard() {
         <Box>
           <Typography variant="h4" gutterBottom>Release Trust Dashboard</Typography>
           <Typography variant="body2" color="text.secondary">
-            Release evidence, policy status, SBOM status, and image digest traceability.
+            Platform application context, release evidence, policy status, SBOM status, and image digest traceability.
           </Typography>
         </Box>
         <Button variant="contained" onClick={loadReleases} disabled={loading}>
