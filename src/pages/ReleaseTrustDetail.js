@@ -127,6 +127,10 @@ function ReleaseTrustDetail() {
     const policyRules = Array.isArray(policy.rules) ? policy.rules : [];
     const promotion = release.promotion || {};
     const promotionDecision = release.promotion_decision;
+    const findings = release.findings || {};
+    const findingSummary = findings.summary || {};
+    const preflight = release.promotion_preflight || {};
+    const trustScore = release.trust_score || {};
 
     return (
         <Container maxWidth="lg" sx={{ py: 3 }}>
@@ -224,6 +228,21 @@ function ReleaseTrustDetail() {
                                     )}
                                 </Stack>
                             </Grid>
+                        </Grid>
+                    </Section>
+                </Grid>
+                <Grid item xs={12} md={6}>
+                    <Section title="Findings & Trust Score">
+                        <Grid container spacing={2}>
+                            <Grid item xs={6}><Detail label="Trust Score" value={trustScore.score === undefined ? 'N/A' : `${trustScore.score}/100`} /></Grid>
+                            <Grid item xs={6}><Typography variant="body2">Promotion Readiness</Typography><StatusChip value={preflight.status} /></Grid>
+                            <Grid item xs={4}><Detail label="Total" value={findingSummary.total_findings} /></Grid>
+                            <Grid item xs={4}><Detail label="Critical" value={findingSummary.critical} /></Grid>
+                            <Grid item xs={4}><Detail label="High" value={findingSummary.high} /></Grid>
+                            <Grid item xs={4}><Detail label="Medium" value={findingSummary.medium} /></Grid>
+                            <Grid item xs={4}><Detail label="Low" value={findingSummary.low} /></Grid>
+                            <Grid item xs={4}><Detail label="Exceptions" value={findingSummary.exception_count} /></Grid>
+                            <Grid item xs={12}><Detail label="Blocking Reasons" value={(preflight.blocking_reasons || []).join('; ') || 'None'} /></Grid>
                         </Grid>
                     </Section>
                 </Grid>
