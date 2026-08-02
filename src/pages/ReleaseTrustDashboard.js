@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DataGrid } from '@mui/x-data-grid';
 import {
@@ -14,6 +14,8 @@ import {
   Typography,
 } from '@mui/material';
 import { callBackend } from '../services/api';
+import ApplicationSelector from '../components/ApplicationSelector';
+import { getStoredUserEmail, loadUserApplications } from '../services/applications';
 
 const statusColors = {
   pass: 'success',
@@ -61,10 +63,15 @@ function SummaryCard({ title, value, color }) {
 function ReleaseTrustDashboard() {
   const navigate = useNavigate();
   const [releases, setReleases] = useState([]);
+  const [applications, setApplications] = useState([]);
+  const [selectedApp, setSelectedApp] = useState('');
   const [loading, setLoading] = useState(true);
+  const [applicationsLoading, setApplicationsLoading] = useState(true);
   const [error, setError] = useState('');
+  const [applicationsError, setApplicationsError] = useState('');
+  const userEmail = getStoredUserEmail();
 
-  const loadReleases = async () => {
+  const loadReleases = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
@@ -76,18 +83,44 @@ function ReleaseTrustDashboard() {
           : Array.isArray(data?.runs)
             ? data.runs
             : [];
-      setReleases(rows.map((release, index) => normalizeRelease(release, index)));
+      const normalizedRows = rows.map((release, index) => normalizeRelease(release, index));
+      setReleases(selectedApp
+        ? normalizedRows.filter((release) => release.application_name === selectedApp)
+        : normalizedRows);
     } catch (loadError) {
       setReleases([]);
       setError(loadError.message || 'Unable to load Release Trust runs.');
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedApp]);
+
+  useEffect(() => {
+    let active = true;
+    setApplicationsLoading(true);
+    setApplicationsError('');
+
+    loadUserApplications(userEmail)
+      .then((apps) => {
+        if (!active) return;
+        setApplications(apps);
+        setSelectedApp((current) => current || apps[0] || '');
+      })
+      .catch((loadError) => {
+        if (!active) return;
+        setApplications([]);
+        setApplicationsError(loadError.message || 'Unable to load applications.');
+      })
+      .finally(() => {
+        if (active) setApplicationsLoading(false);
+      });
+
+    return () => { active = false; };
+  }, [userEmail]);
 
   useEffect(() => {
     loadReleases();
-  }, []);
+  }, [loadReleases]);
 
   const policyPassCount = releases.filter((release) => release.policy_status === 'pass').length;
   const policyWarnCount = releases.filter((release) => release.policy_status === 'warn').length;
@@ -147,6 +180,12 @@ function ReleaseTrustDashboard() {
       >
         <Box>
           <Typography variant="h4" gutterBottom>Release Trust Dashboard</Typography>
+          <ApplicationSelector
+            applications={applications}
+            value={selectedApp}
+            onChange={setSelectedApp}
+            disabled={applicationsLoading || applications.length === 0}
+          />
           <Typography variant="body2" color="text.secondary">
             Platform application context, release evidence, policy status, SBOM status, and image digest traceability.
           </Typography>
@@ -180,6 +219,12 @@ function ReleaseTrustDashboard() {
         </Alert>
       )}
 
+      {applicationsError && (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          {applicationsError}
+        </Alert>
+      )}
+
       {loading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
           <CircularProgress />
@@ -189,7 +234,9 @@ function ReleaseTrustDashboard() {
           <CardContent>
             <Typography variant="h6" gutterBottom>No Release Trust runs found</Typography>
             <Typography variant="body2" color="text.secondary">
-              The backend returned no Release Trust run data for this environment yet.
+              {selectedApp
+                ? `No Release Trust runs found for ${selectedApp}.`
+                : 'The backend returned no Release Trust run data for this environment yet.'}
             </Typography>
           </CardContent>
         </Card>
